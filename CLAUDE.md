@@ -7,26 +7,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Agent Watch: control Claude Code (and Codex) sessions from an Apple Watch. Three components talk to each other:
 
 ```
-Apple Watch <== WCSession ==> iPhone (relay) <== HTTP/SSE ==> Bridge (Node.js, on the Mac)
+Apple Watch <== WCSession ==> iPhone (relay) <== HTTP/SSE ==> Bridge (Go, on the Mac)
    (SwiftUI)      sendMessage/                                        |
                  transferUserInfo                          HTTP hooks | PTY stdin
                                                                        v
                                                           Claude Code / Codex session(s)
 ```
 
-- **`skill/bridge/server.js`** — a single-file Node.js HTTP server. This is the core of the system; almost all behavior lives here.
+- **`skill/bridge/`** — a Go HTTP server, `package main` split across files by concern (see below). This is the core of the system; almost all behavior lives here.
 - **`ios/ClaudeWatch/`** — an Xcode workspace (generated via XcodeGen) with two targets: the iPhone app and the watchOS app, sharing code via `Shared/`.
 - **`.claude/skills/claude-watch/`** and **`skill/SKILL.md`** — the `/claude-watch` Claude Code skill definition that starts the bridge.
 
 ## Commands
 
-### Bridge server (Node.js)
+### Bridge server (Go)
 ```bash
 cd skill/bridge
-npm install          # or: ./skill/setup.sh
-node server.js        # or: npm start
+go build -o bridge . && ./bridge   # or: ./skill/setup.sh to just build
+go run .                            # or skip the build step entirely
 ```
-No build step, no test suite, no linter configured for the bridge — it's a single ESM file (`type: module` in package.json) run directly with `node`.
+No test suite configured for the bridge yet. It's a small Go module (`skill/bridge/`, `package main`) split across files by concern — `main.go`, `session.go`, `pty.go`, `sse.go`, `permissions.go`, `hooks.go`, `command.go`, `auth.go`, `pair.go`, `status.go`, `bonjour.go`, `binary.go` — rather than one file, because Go handlers run concurrently per-request: each piece of shared state (sessions, the SSE ring buffer, pairing/auth, pending permissions) is its own mutex-guarded component instead of the implicitly-single-threaded globals the old Node version could get away with. Only external dependency: `github.com/grandcat/zeroconf` for Bonjour/mDNS.
 
 ### Claude Code hooks
 ```bash
@@ -46,21 +46,19 @@ Build via Xcode (Cmd+R), selecting the `ClaudeWatch` scheme (iPhone, embeds the 
 
 Since `ClaudeWatch.xcodeproj` is generated, **never hand-edit `project.pbxproj`** — add new files/targets/settings to `project.yml` and rerun `xcodegen generate`.
 
-## Bridge server architecture (`skill/bridge/server.js`)
+## Bridge server architecture (`skill/bridge/*.go`)
 
-The bridge is a plain `http` server (no framework) with a manual route table (`routes` object mapping `"METHOD /path"` to handlers). Key concepts:
+The bridge is a plain `net/http` server (no framework) using Go 1.22's method+pattern `ServeMux` routing, one handler per `"METHOD /path"` — a direct port of server.js's original manual route table. Key concepts:
 
-- **Multi-session, multi-agent**: the bridge can host several concurrent `claude` and/or `codex` sessions. Each is a slot in the `sessions` Map (`{ id, agent, cwd, folderName, ptyProcess, state, createdAt }`), keyed by a generated session ID. Binaries are located at startup via `findBinary()` (checks common install paths, then falls back to `which`).
+- **Claude Code only.** This is a faithful Go port of the original Node bridge's Claude-handling core, but Codex support (the `~/.codex/sessions` JSONL tailer, `~/.codex/log/codex-tui.log` tailer, synthetic exec-approval permissions — server.js's `startCodexMonitor` subsystem) was deliberately dropped, not carried over. `POST /command` with `spawn` only accepts `"claude"`. The `agent` field is kept on sessions (and in wire responses) for iOS/watchOS compatibility, but is always `"claude"`.
+- **Sessions**: each is a slot in `SessionRegistry.sessions` (`session.go`: `{ID, Agent, Cwd, FolderName, State, CreatedAt, pty}`), guarded by a mutex since handlers run concurrently. Binaries are located at startup via `findBinary()`/`findClaudeBinary()` (`binary.go`: checks common install paths, then falls back to `exec.LookPath`).
 - **Two ways a session gets created**:
-  1. **Bridge-spawned**: `POST /command` with `spawn: "claude"|"codex"` — the bridge spawns the CLI itself inside a `script`-wrapped PTY (`spawnInteractiveProcess`) and owns its stdin/stdout.
-  2. **Externally detected**: a Claude Code session running in a normal terminal (with hooks installed) or a Codex session — the bridge has no PTY for these, only a session record created on first hook/log event (`resolveHookSession`, `touchExternalSession`). Sending a command to one of these runs the CLI non-interactively (`claude -p ... --continue` / `codex exec ...`) rather than writing to a PTY.
-- **Claude Code integration is hook-driven**: `setup-hooks.sh` registers HTTP hooks (`PostToolUse`, `PreToolUse`, `PermissionRequest`, `Stop`, `PostToolUseFailure`, `StopFailure`, `Notification`) pointing at `/hooks/*` routes. `PermissionRequest` is the only blocking one — the handler pushes an SSE `permission-request` event and `await`s `waitForPermission()`, which resolves when `POST /command` later delivers a matching `permissionId` + decision (or times out after 10 minutes). The resolved decision is translated back into the hook's expected JSON response shape, including forwarding `AskUserQuestion` answers via `updatedInput`.
-- **Codex integration is poll-driven** (Codex has no hook system): `startCodexMonitor()` runs two pollers on an interval (`CODEX_SESSION_SCAN_INTERVAL_MS`):
-  - Tails `~/.codex/sessions/**/*.jsonl` files for new session/tool-call/tool-result events (`scanCodexSessionFiles` → `handleCodexJsonlLine`), synthesizing the same `tool-output`/`session`/`task-complete` SSE events Claude hooks would produce.
-  - Tails `~/.codex/log/codex-tui.log` for exec-approval prompts (`scanCodexLog` → `consumeCodexLogChunk`) and synthesizes a `permission-request` SSE event (`surfaceCodexExecApproval`); the response is delivered by writing directly to the Codex PTY's stdin (`resolveCodexSyntheticPermission`), since Codex approvals are answered via keypress, not an HTTP callback.
-- **Everything fans out over one SSE stream** (`GET /events`, auth via bearer token from `/pair`). Events carry a monotonic `id` and are buffered in a 500-entry ring (`sseBuffer`) so reconnecting clients can replay via `Last-Event-ID`. New SSE clients are also synced with a snapshot of currently-running sessions and pending permissions on connect.
-- **Pairing**: `POST /pair` with a 6-digit code (5-minute TTL, rate-limited to 5 attempts / 5 minutes) issues a bearer token used by `/events` and implicitly trusted by `/command` (no per-request re-auth beyond `requireAuth`).
-- Port: tries `7860`–`7869` in order and binds the first free one; advertises itself via Bonjour/mDNS as `_claude-watch._tcp`.
+  1. **Bridge-spawned**: `POST /command` with `spawn: "claude"` — the bridge spawns the CLI itself inside a `script`-wrapped process (`spawnInteractiveProcess` in `pty.go`, shelling out to the Unix `script` utility exactly like the Node version did — no pty library, no cgo) and owns its stdin/stdout.
+  2. **Externally detected**: a Claude Code session running in a normal terminal with hooks installed — the bridge has no PTY for these, only a session record created on first hook event (`SessionRegistry.ResolveHookSession` in `session.go`). Sending a command to one of these runs `claude -p "<prompt>" --continue` non-interactively (`command.go`'s `handleHeadlessPrompt`) rather than writing to a PTY.
+- **Claude Code integration is hook-driven**: `setup-hooks.sh` registers HTTP hooks (`PostToolUse`, `PreToolUse`, `PermissionRequest`, `Stop`, `PostToolUseFailure`, `StopFailure`, `Notification`) pointing at `/hooks/*` routes (`hooks.go`). `PermissionRequest` is the only blocking one — the handler pushes an SSE `permission-request` event and blocks on `PermissionRegistry.Wait()` (`permissions.go`), which resolves when `POST /command` later delivers a matching `permissionId` + decision (or times out after 10 minutes via `time.AfterFunc`). The resolved decision is translated back into the hook's expected JSON response shape, including forwarding `AskUserQuestion` answers via `updatedInput`. Nothing sets `http.Server.WriteTimeout`, so this 10-minute-blocking connection isn't cut short.
+- **Everything fans out over one SSE stream** (`GET /events`, auth via bearer token from `/pair`; implemented in `sse.go`). Events carry a monotonic `id` and are buffered in a 500-entry ring (`SSEHub.buffer`) so reconnecting clients can replay via `Last-Event-ID`. New SSE clients are also synced with a snapshot of currently-running sessions on connect. Frame format (`id: `, `event: `, `data: `, single space after each colon, blank-line terminated) is exact — the watchOS SSE parser is strict about it.
+- **Pairing**: `POST /pair` with a 6-digit code (5-minute TTL, rate-limited to 5 attempts / 5 minutes) issues a bearer token used by `/events` and implicitly trusted by `/command` (`auth.go`; no per-request re-auth beyond `RequireAuth`).
+- Port: tries `7860`–`7869` in order and binds the first free one; advertises itself via Bonjour/mDNS as `_claude-watch._tcp` (`bonjour.go`, via `github.com/grandcat/zeroconf` — the only non-stdlib dependency).
 
 When adding a new tool/event type to the bridge, the general pattern is: emit it as an SSE event with a `source` field (`"claude"` or `"codex"`) and a `sessionId`, and handle it in `RelayService`/`WatchViewState` on the client side (see below) — the terminal rendering and permission UI are driven generically off `tool_name`/`tool_input`/`tool_output`, not hardcoded per event.
 

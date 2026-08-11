@@ -255,7 +255,7 @@ fi
 echo "Done! Sessions will stream to the bridge."
 echo ""
 echo "Usage:"
-echo "  1. Start bridge:  cd skill/bridge && node server.js"
+echo "  1. Start bridge:  cd skill/bridge && go run . (or: go build -o bridge . && ./bridge)"
 echo "  2. Claude Code:   just use normally (hooks auto-forward)"
 echo ""
 echo "To remove:  ./setup-hooks.sh --remove"

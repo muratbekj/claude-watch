@@ -17,7 +17,7 @@ https://github.com/user-attachments/assets/5f478c28-2086-4696-9d76-e43dda853201
                     WCSession
  Apple Watch  <===============>  iPhone  <=======>  Mac
   (SwiftUI)     sendMessage       (Relay)   HTTP    Bridge Server
-                transferUserInfo           SSE     (Node.js)
+                transferUserInfo           SSE     (Go)
                                                       |
                                             HTTP Hooks | PTY stdin
                                                       v
@@ -31,14 +31,14 @@ https://github.com/user-attachments/assets/5f478c28-2086-4696-9d76-e43dda853201
 - **Dynamic questions** — answer `AskUserQuestion` prompts with all options displayed
 - **Voice commands** — dictate commands to Claude via watchOS dictation
 - **iPhone companion** — pairing UI, connection status, terminal preview, permission approvals
-- **Bridge server** — Node.js server on your Mac that connects Claude Code to the watch via HTTP hooks + SSE
+- **Bridge server** — Go server on your Mac that connects Claude Code to the watch via HTTP hooks + SSE
 
 ## Architecture
 
 The system has three components:
 
 ### 1. Bridge Server (Mac)
-A Node.js HTTP server (`skill/bridge/server.js`) that:
+A Go HTTP server (`skill/bridge/`, built to a single binary) that:
 - Receives events from Claude Code via [HTTP hooks](https://docs.anthropic.com/en/docs/claude-code/hooks) (`PostToolUse`, `PermissionRequest`, `Stop`, etc.)
 - Streams events to connected clients via Server-Sent Events (SSE)
 - Handles pairing with a 6-digit code + session token
@@ -64,7 +64,7 @@ A SwiftUI watchOS app that:
 ## Quick Start
 
 ### Prerequisites
-- macOS with Node.js 18+
+- macOS with Go 1.22+
 - Xcode 16+ with watchOS SDK
 - Apple Watch on the same Wi-Fi as your Mac
 - Claude Code CLI installed
@@ -73,11 +73,11 @@ A SwiftUI watchOS app that:
 1. Make sure your Apple Watch is connected to the **same Wi-Fi network** as the Mac running your Claude Code session
 2. On your Apple Watch, go to **Settings > Wi-Fi > your network** and turn **Private Wi-Fi Address** to **Off** — this is required for Bonjour/mDNS discovery to work reliably on the local network
 
-### 1. Install the bridge
+### 1. Build the bridge
 
 ```bash
 cd skill/bridge
-npm install
+go build -o bridge .
 ```
 
 ### 2. Install Claude Code hooks
@@ -94,7 +94,7 @@ To remove hooks later: `./skill/setup-hooks.sh --remove`
 
 ```bash
 cd skill/bridge
-node server.js
+./bridge
 ```
 
 You'll see:
@@ -137,9 +137,10 @@ Start any Claude Code session in a terminal. Every tool use (Read, Edit, Bash, G
 claude-watch/
 ├── skill/
 │   ├── bridge/
-│   │   ├── server.js          # Bridge server (HTTP + SSE + Bonjour)
-│   │   └── package.json       # Node.js dependencies
-│   ├── setup.sh               # Install bridge dependencies
+│   │   ├── main.go            # Startup, routing, graceful shutdown
+│   │   ├── session.go, sse.go, pty.go, hooks.go, command.go, ...
+│   │   └── go.mod             # Go module (single dependency: grandcat/zeroconf)
+│   ├── setup.sh               # Build the bridge binary
 │   ├── setup-hooks.sh         # Install/remove Claude Code hooks
 │   └── SKILL.md               # Claude Code skill definition
 │
@@ -253,7 +254,7 @@ The `setup-hooks.sh` script installs these HTTP hooks globally in `~/.claude/set
 | Component | Minimum Version |
 |-----------|----------------|
 | macOS | 13.0+ |
-| Node.js | 18+ |
+| Go | 1.22+ |
 | Xcode | 16+ |
 | iOS | 17.0 |
 | watchOS | 10.0 |
@@ -262,7 +263,7 @@ The `setup-hooks.sh` script installs these HTTP hooks globally in `~/.claude/set
 ## Troubleshooting
 
 ### Watch shows "Bridge not found"
-- Ensure `node server.js` is running on your Mac
+- Ensure `./bridge` is running on your Mac
 - Check that your watch is on the same Wi-Fi network
 - Use the "Enter IP manually" option with the IP shown in the bridge banner
 

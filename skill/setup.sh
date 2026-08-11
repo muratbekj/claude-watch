@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
 cd "$(dirname "$0")/bridge"
-echo "Installing Agent Watch bridge dependencies..."
-npm install
+echo "Building Agent Watch bridge..."
+go build -o bridge .
 echo "Setup complete."
