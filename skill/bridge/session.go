@@ -19,6 +19,13 @@ type Session struct {
 	State      string // "running" | "ended"
 	CreatedAt  time.Time
 
+	// ClaudeSessionID is Claude Code's own stable "session_id" from the
+	// hook payload (empty for bridge-spawned sessions and for hook
+	// payloads that don't carry one, e.g. Codex). Used to resolve hook
+	// events back to the same Session even when the reported cwd changes
+	// mid-conversation (e.g. after `cd` in a Bash tool call).
+	ClaudeSessionID string
+
 	pty *ptyProcess // nil for externally/hook-detected sessions
 }
 
@@ -211,6 +218,20 @@ func (reg *SessionRegistry) Get(id string) (*Session, bool) {
 	return s, ok
 }
 
+func (reg *SessionRegistry) FindByClaudeSessionID(claudeSessionID string) *Session {
+	if claudeSessionID == "" {
+		return nil
+	}
+	reg.mu.Lock()
+	defer reg.mu.Unlock()
+	for _, s := range reg.sessions {
+		if s.ClaudeSessionID == claudeSessionID {
+			return s
+		}
+	}
+	return nil
+}
+
 func (reg *SessionRegistry) FindByCwd(cwd string) *Session {
 	if cwd == "" {
 		return nil
@@ -275,21 +296,35 @@ func (reg *SessionRegistry) RunningSnapshot() []sessionSnapshot {
 	return out
 }
 
-// ResolveHookSession mirrors resolveHookSession(): match by cwd, else
-// fall back to the most recent bridge-owned active session, else
+// ResolveHookSession primarily matches by Claude Code's own stable
+// "session_id" from the hook payload, so one logical conversation stays
+// one Session even as its reported cwd changes (e.g. after `cd` in a Bash
+// tool call). Only when the payload carries no session_id (older/other
+// hook payloads, e.g. Codex) does it fall back to the old heuristics:
+// match by cwd, else the most recent bridge-owned active session, else
 // auto-create an externally-detected session slot (agent is always
 // normalized to "claude" — Codex support is out of scope for this port).
 func (reg *SessionRegistry) ResolveHookSession(body jmap) string {
+	claudeSessionID, _ := strField(body, "session_id")
+
+	if claudeSessionID != "" {
+		if match := reg.FindByClaudeSessionID(claudeSessionID); match != nil {
+			return match.ID
+		}
+	}
+
 	cwd, _ := strField(body, "session_cwd")
 	if cwd == "" {
 		cwd, _ = strField(body, "cwd")
 	}
 
-	if match := reg.FindByCwd(cwd); match != nil {
-		return match.ID
-	}
-	if active := reg.FindMostRecentActive(); active != nil {
-		return active.ID
+	if claudeSessionID == "" {
+		if match := reg.FindByCwd(cwd); match != nil {
+			return match.ID
+		}
+		if active := reg.FindMostRecentActive(); active != nil {
+			return active.ID
+		}
 	}
 
 	resolvedCwd := cwd
@@ -300,12 +335,13 @@ func (reg *SessionRegistry) ResolveHookSession(body jmap) string {
 	id := newSessionID()
 
 	slot := &Session{
-		ID:         id,
-		Agent:      "claude",
-		Cwd:        resolvedCwd,
-		FolderName: folderName,
-		State:      "running",
-		CreatedAt:  time.Now(),
+		ID:              id,
+		Agent:           "claude",
+		Cwd:             resolvedCwd,
+		FolderName:      folderName,
+		State:           "running",
+		CreatedAt:       time.Now(),
+		ClaudeSessionID: claudeSessionID,
 	}
 
 	reg.mu.Lock()
