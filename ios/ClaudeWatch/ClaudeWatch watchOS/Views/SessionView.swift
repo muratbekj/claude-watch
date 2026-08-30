@@ -5,8 +5,6 @@ struct SessionView: View {
     @EnvironmentObject private var session: WatchViewState
 
     @State private var showVoiceInput = false
-    @State private var cursorVisible = true
-    private let cursorTimer = Timer.publish(every: 0.4, on: .main, in: .common).autoconnect()
 
     private var agentSession: AgentSession {
         guard session.sessions.indices.contains(sessionIndex) else {
@@ -56,14 +54,6 @@ struct SessionView: View {
                                     .id(line.id)
                             }
 
-                            if isThinking {
-                                Text(cursorVisible ? "\u{2588}" : " ")
-                                    .font(.system(size: 11, design: .monospaced))
-                                    .foregroundColor(Theme.Text.primary)
-                                    .onReceive(cursorTimer) { _ in cursorVisible.toggle() }
-                                    .id("cursor")
-                            }
-
                             Spacer().frame(height: 40)
                         }
                         .padding(.horizontal, 4)
@@ -71,9 +61,7 @@ struct SessionView: View {
                     }
                     .onChange(of: agentSession.terminalLines.count) { _ in
                         withAnimation(.easeOut(duration: 0.1)) {
-                            if isThinking {
-                                proxy.scrollTo("cursor", anchor: .bottom)
-                            } else if let last = visibleLines.last {
+                            if let last = visibleLines.last {
                                 proxy.scrollTo(last.id, anchor: .bottom)
                             }
                         }
@@ -152,12 +140,59 @@ struct SessionView: View {
 
     @ViewBuilder
     private func terminalLine(_ line: TerminalLine) -> some View {
-        Text(line.text)
-            .font(.system(size: 11, design: .monospaced))
-            .foregroundColor(colorForLine(line))
-            .lineLimit(4)
-            .truncationMode(.tail)
-            .fixedSize(horizontal: false, vertical: true)
+        if line.type == .action {
+            actionCard(line)
+        } else if line.type == .thinking {
+            Text("\(line.text)…")
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundColor(Theme.Text.secondary)
+                .modifier(PulseModifier())
+        } else {
+            Text(line.text)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(colorForLine(line))
+                .lineLimit(4)
+                .truncationMode(.tail)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    @ViewBuilder
+    private func actionCard(_ line: TerminalLine) -> some View {
+        let style = ToolStyle.forTool(line.toolName ?? "")
+        HStack(alignment: .top, spacing: 5) {
+            Rectangle()
+                .fill(style.color)
+                .frame(width: 2)
+            Image(systemName: style.symbol)
+                .font(.system(size: 9))
+                .foregroundColor(style.color)
+                .frame(width: 12, alignment: .center)
+                .padding(.top, 1)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(line.text)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                if let detail = line.detail {
+                    Text(detail)
+                        .font(.system(size: 9.5))
+                        .foregroundColor(detailColor(detail))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+            }
+        }
+        .padding(.vertical, 1)
+    }
+
+    private func detailColor(_ detail: String) -> Color {
+        let lower = detail.lowercased()
+        if detail.hasPrefix("✓") || lower.contains("success") || lower.contains("complete") {
+            return Theme.Accent.success
+        }
+        return Theme.Text.secondary
     }
 
     private func colorForLine(_ line: TerminalLine) -> Color {
@@ -165,10 +200,6 @@ struct SessionView: View {
             return Theme.Accent.success
         }
         return colorFor(line.type)
-    }
-
-    private var isThinking: Bool {
-        agentSession.terminalLines.last?.type == .thinking
     }
 
     private var statusColor: Color {
@@ -187,6 +218,7 @@ struct SessionView: View {
         case .system:   return Theme.Text.secondary
         case .thinking: return Theme.Text.primary.opacity(0.5)
         case .error:    return Theme.Accent.error
+        case .action:   return .white // unused — actionCard renders its own colors
         }
     }
 }
@@ -201,23 +233,13 @@ struct SessionView: View {
             activity: .running
         )
         s.terminalLines = [
-            TerminalLine(text: "⏺ Reading project structure...", type: .system, sessionId: "preview-1"),
-            TerminalLine(text: "$ find . -name '*.swift' | head -20", type: .command, sessionId: "preview-1"),
-            TerminalLine(text: "./Sources/App/Models/Session.swift", type: .output, sessionId: "preview-1"),
-            TerminalLine(text: "./Sources/App/Views/SessionView.swift", type: .output, sessionId: "preview-1"),
-            TerminalLine(text: "./Sources/App/Views/DashboardView.swift", type: .output, sessionId: "preview-1"),
-            TerminalLine(text: "./Tests/SessionTests.swift", type: .output, sessionId: "preview-1"),
-            TerminalLine(text: "⏺ Read Sources/App/Models/Session.swift", type: .system, sessionId: "preview-1"),
-            TerminalLine(text: "Found 3 models: Session, Workout, Metric", type: .output, sessionId: "preview-1"),
-            TerminalLine(text: "⏺ Edit Sources/App/Views/SessionView.swift", type: .system, sessionId: "preview-1"),
-            TerminalLine(text: "Added live heart rate overlay with", type: .output, sessionId: "preview-1"),
-            TerminalLine(text: "  animation and haptic feedback", type: .output, sessionId: "preview-1"),
+            TerminalLine(text: "Read Session.swift", type: .action, sessionId: "preview-1", toolName: "Read"),
+            TerminalLine(text: "grep \"class Session\"", type: .action, sessionId: "preview-1", toolName: "Grep", detail: "3 matches"),
+            TerminalLine(text: "Edit SessionView.swift", type: .action, sessionId: "preview-1", toolName: "Edit"),
             TerminalLine(text: "> looks good, now add the timer", type: .command, sessionId: "preview-1"),
-            TerminalLine(text: "⏺ Edit Sources/App/Views/SessionView.swift", type: .system, sessionId: "preview-1"),
-            TerminalLine(text: "Added elapsed timer with .monospacedDigit", type: .output, sessionId: "preview-1"),
-            TerminalLine(text: "$ swift build 2>&1 | tail -3", type: .command, sessionId: "preview-1"),
-            TerminalLine(text: "Build complete! (4.2s)", type: .output, sessionId: "preview-1"),
-            TerminalLine(text: "", type: .thinking, sessionId: "preview-1"),
+            TerminalLine(text: "Edit SessionView.swift", type: .action, sessionId: "preview-1", toolName: "Edit"),
+            TerminalLine(text: "swift build 2>&1 | tail -3", type: .action, sessionId: "preview-1", toolName: "Bash", detail: "✓ Build complete (4.2s)"),
+            TerminalLine(text: "Percolating", type: .thinking, sessionId: "preview-1"),
         ]
         return s
     }()

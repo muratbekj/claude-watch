@@ -224,41 +224,44 @@ class WatchViewState: ObservableObject {
         let toolOutput = json["tool_output"] as? String
         let prefix = source == "codex" ? "[codex] " : ""
 
+        // First non-empty line of tool_output, truncated — the one-line
+        // result shown under an action card's title (e.g. "✓ Build complete").
+        func firstOutputLine() -> String? {
+            guard let output = toolOutput else { return nil }
+            for line in output.components(separatedBy: "\n") {
+                let cleaned = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !cleaned.isEmpty { return String(cleaned.prefix(60)) }
+            }
+            return nil
+        }
+
         switch toolName {
         case "Bash":
             let cmd = toolInput["command"] as? String ?? ""
-            appendLine(TerminalLine(text: "\(prefix)$ \(cmd)", type: .command), sessionId: sessionId)
-            if let output = toolOutput, !output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                for line in output.components(separatedBy: "\n").prefix(5) {
-                    let cleaned = line.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !cleaned.isEmpty {
-                        appendLine(TerminalLine(text: cleaned, type: .output), sessionId: sessionId)
-                    }
-                }
-            }
+            appendLine(TerminalLine(text: "\(prefix)\(cmd)", type: .action, toolName: toolName, detail: firstOutputLine()), sessionId: sessionId)
         case "Read":
             let path = toolInput["file_path"] as? String ?? ""
-            appendLine(TerminalLine(text: "\(prefix)Read \((path as NSString).lastPathComponent)", type: .system), sessionId: sessionId)
+            appendLine(TerminalLine(text: "\(prefix)Read \((path as NSString).lastPathComponent)", type: .action, toolName: toolName), sessionId: sessionId)
         case "Edit":
             let path = toolInput["file_path"] as? String ?? ""
-            appendLine(TerminalLine(text: "\(prefix)Edit \((path as NSString).lastPathComponent)", type: .system), sessionId: sessionId)
+            appendLine(TerminalLine(text: "\(prefix)Edit \((path as NSString).lastPathComponent)", type: .action, toolName: toolName), sessionId: sessionId)
         case "Write":
             let path = toolInput["file_path"] as? String ?? ""
-            appendLine(TerminalLine(text: "\(prefix)Write \((path as NSString).lastPathComponent)", type: .system), sessionId: sessionId)
+            appendLine(TerminalLine(text: "\(prefix)Write \((path as NSString).lastPathComponent)", type: .action, toolName: toolName), sessionId: sessionId)
         case "Grep":
             let pattern = toolInput["pattern"] as? String ?? ""
-            appendLine(TerminalLine(text: "\(prefix)grep \"\(pattern)\"", type: .command), sessionId: sessionId)
+            appendLine(TerminalLine(text: "\(prefix)grep \"\(pattern)\"", type: .action, toolName: toolName, detail: firstOutputLine()), sessionId: sessionId)
         case "CodexMessage":
             if let output = toolOutput {
                 appendLine(TerminalLine(text: "\(prefix)\(String(output.prefix(80)))", type: .output), sessionId: sessionId)
             }
         default:
-            appendLine(TerminalLine(text: "\(prefix)[\(toolName)]", type: .system), sessionId: sessionId)
+            appendLine(TerminalLine(text: "\(prefix)[\(toolName)]", type: .action, toolName: toolName), sessionId: sessionId)
         }
         isStreaming = true
 
         // Add thinking indicator — will be removed when next event arrives
-        appendLine(TerminalLine(text: "", type: .thinking), sessionId: sessionId)
+        appendLine(TerminalLine(text: WhimsicalStatus.randomVerb(), type: .thinking), sessionId: sessionId)
     }
 
     private func handlePermissionRequest(_ json: [String: Any], sessionId: String?) {
@@ -529,7 +532,7 @@ class WatchViewState: ObservableObject {
     func sendVoiceCommand(_ text: String, sessionId: String? = nil) {
         let sid = sessionId ?? activeSession?.id
         appendLine(TerminalLine(text: "> \(text)", type: .command), sessionId: sid)
-        appendLine(TerminalLine(text: "", type: .thinking), sessionId: sid)
+        appendLine(TerminalLine(text: WhimsicalStatus.randomVerb(), type: .thinking), sessionId: sid)
 
         guard let baseURL = bridge.baseURL, let token = bridge.token else { return }
 

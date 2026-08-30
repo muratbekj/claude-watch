@@ -19,6 +19,7 @@ enum Theme {
         static let success = Color(hex: "34C759")
         static let error = Color(hex: "FF3B30")
         static let approval = Color(hex: "E8A735")
+        static let info = Color(hex: "5E9EFF")
     }
 }
 
