@@ -17,24 +17,15 @@ struct ApprovalView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
-                // Question text
+                headerStrip
+
+                // Literal question text, when this is an AskUserQuestion
+                // prompt rather than a plain tool-permission request.
                 if let question = request.question {
                     Text(question)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.white)
                         .fixedSize(horizontal: false, vertical: true)
-                } else {
-                    Text("Do you want to \(request.toolName.lowercased())?")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.white)
-                }
-
-                // Action summary / header
-                if !request.actionSummary.isEmpty && request.actionSummary != request.toolName {
-                    Text(request.actionSummary)
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundColor(Theme.Accent.approval)
-                        .lineLimit(2)
                 }
 
                 Divider().background(Theme.Text.dimmed)
@@ -82,6 +73,30 @@ struct ApprovalView: View {
             .padding(.top, 4)
         }
         .background(Theme.Background.primary)
+    }
+
+    private var headerStrip: some View {
+        let style = ToolStyle.forTool(request.toolName)
+        let title = !request.actionSummary.isEmpty ? request.actionSummary : request.toolName
+        return HStack(alignment: .top, spacing: 6) {
+            Rectangle()
+                .fill(style.color)
+                .frame(width: 3)
+            HStack(spacing: 6) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(style.color.opacity(0.18))
+                        .frame(width: 22, height: 22)
+                    Image(systemName: style.symbol)
+                        .font(.system(size: 10))
+                        .foregroundColor(style.color)
+                }
+                Text(title)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.white)
+                    .lineLimit(2)
+            }
+        }
     }
 
     private func colorForOption(_ index: Int) -> Color {
