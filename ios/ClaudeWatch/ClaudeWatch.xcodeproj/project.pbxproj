@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		03C0B4540FE42877466C799A /* NumberPadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2AE97EBC478BD914C68C639 /* NumberPadView.swift */; };
 		056CF0B6ED69C08286F46458 /* ApprovalRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B42442B8133715613F1B33C /* ApprovalRequest.swift */; };
 		0C354333AE5E18C4445957DD /* TerminalLine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FDEABAF052B796E83242EB1 /* TerminalLine.swift */; };
 		13D7D73B8705DA9248E014EB /* WatchBridgeClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B51788852DF163154F0D978 /* WatchBridgeClient.swift */; };
@@ -52,6 +53,8 @@
 		DCE274895FA3FD6E784C9F57 /* ApprovalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98B6945BBB9FD551235039E4 /* ApprovalView.swift */; };
 		E98F410B3104C20DA98FCDD4 /* Color+Hex.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1DF2BEEDD4C382E734A9998 /* Color+Hex.swift */; };
 		ED44F4F97DC4EA01CA9CA7EF /* ClaudeMascot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B94DD051BD503B11365D6B9 /* ClaudeMascot.swift */; };
+		EE56CFB298A8E08EE0BCC995 /* WhimsicalStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEE8B7F73D4F2B406E6ADFD7 /* WhimsicalStatus.swift */; };
+		F3FF66CB3DAB505029B98978 /* ToolStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9E5F4DB569AEA9A916E022B /* ToolStyle.swift */; };
 		FAF94EB271EDC52F9DFBAC7B /* AgentIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = F237360F4AF9396B7B3C1881 /* AgentIcon.swift */; };
 /* End PBXBuildFile section */
 
@@ -115,8 +118,11 @@
 		D1DF2BEEDD4C382E734A9998 /* Color+Hex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Hex.swift"; sourceTree = "<group>"; };
 		D2084D859AEDF739A7B8CD49 /* ConnectionStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionStatusView.swift; sourceTree = "<group>"; };
 		D315314A06584F20A95E7DB6 /* WatchMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchMessage.swift; sourceTree = "<group>"; };
+		DEE8B7F73D4F2B406E6ADFD7 /* WhimsicalStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhimsicalStatus.swift; sourceTree = "<group>"; };
 		E05A5819BA45145C8992456D /* ComplicationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComplicationProvider.swift; sourceTree = "<group>"; };
+		E9E5F4DB569AEA9A916E022B /* ToolStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolStyle.swift; sourceTree = "<group>"; };
 		F237360F4AF9396B7B3C1881 /* AgentIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentIcon.swift; sourceTree = "<group>"; };
+		F2AE97EBC478BD914C68C639 /* NumberPadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberPadView.swift; sourceTree = "<group>"; };
 		F4BB0DBA06997A7A93FE5E2F /* ClaudeWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeWatchApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -136,10 +142,13 @@
 			children = (
 				98B6945BBB9FD551235039E4 /* ApprovalView.swift */,
 				AD19B0B5E496A5FE71AC4A4B /* MultiSessionPager.swift */,
+				F2AE97EBC478BD914C68C639 /* NumberPadView.swift */,
 				B55C9A1C1C5F307901694336 /* OnboardingView.swift */,
 				A0197766C66BEEF61093A925 /* SessionView.swift */,
 				103838389D179B4E7BB59FE9 /* StatusDashboard.swift */,
+				E9E5F4DB569AEA9A916E022B /* ToolStyle.swift */,
 				0B4CE22624BFF32BAC9AD1D8 /* VoiceInputView.swift */,
+				DEE8B7F73D4F2B406E6ADFD7 /* WhimsicalStatus.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -427,6 +436,7 @@
 				146A159A46875A11C9197458 /* ComplicationProvider.swift in Sources */,
 				7CFCC520E5AF353A95FA0A70 /* HapticManager.swift in Sources */,
 				2195C8818F84EDB4E0A5AD68 /* MultiSessionPager.swift in Sources */,
+				03C0B4540FE42877466C799A /* NumberPadView.swift in Sources */,
 				3567322839F9B7C8982E2CC2 /* OnboardingView.swift in Sources */,
 				BE5F367582BDDF887D2B9676 /* OutputRingBuffer.swift in Sources */,
 				5878B94D3BB58C30DCBFB3AF /* SessionState.swift in Sources */,
@@ -434,11 +444,13 @@
 				45ACE32BBF4381937CE61A77 /* SpeechService.swift in Sources */,
 				1D59400FB238BFA588E37DB1 /* StatusDashboard.swift in Sources */,
 				0C354333AE5E18C4445957DD /* TerminalLine.swift in Sources */,
+				F3FF66CB3DAB505029B98978 /* ToolStyle.swift in Sources */,
 				CA6DD0BE4E438FDF85EC6481 /* VoiceInputView.swift in Sources */,
 				13D7D73B8705DA9248E014EB /* WatchBridgeClient.swift in Sources */,
 				6BB8C42991468DB0E89B48AA /* WatchMessage.swift in Sources */,
 				8C1280014A4BBFC45C6D6CBF /* WatchSessionManager.swift in Sources */,
 				B8715FECFCB144FCB05963D7 /* WatchViewState.swift in Sources */,
+				EE56CFB298A8E08EE0BCC995 /* WhimsicalStatus.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
