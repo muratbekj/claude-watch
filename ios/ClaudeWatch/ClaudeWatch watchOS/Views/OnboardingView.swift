@@ -10,7 +10,6 @@ struct OnboardingView: View {
     @State private var isConnecting = false
     @State private var error: String?
     @State private var bridgeURL: URL?
-    @FocusState private var codeFocused: Bool
     @FocusState private var ipFocused: Bool
 
     var body: some View {
@@ -38,17 +37,7 @@ struct OnboardingView: View {
                     .font(.system(size: 11))
                     .foregroundColor(Theme.Text.secondary)
 
-                TextField("000000", text: $code)
-                    .font(.system(size: 22, weight: .bold, design: .monospaced))
-                    .foregroundColor(Theme.Text.primary)
-                    .multilineTextAlignment(.center)
-                    .textContentType(.oneTimeCode)
-                    .focused($codeFocused)
-                    .onChange(of: code) { _, newValue in
-                        let filtered = String(newValue.filter { $0.isNumber }.prefix(6))
-                        if filtered != newValue { code = filtered }
-                        if filtered.count == 6 { submitCode(filtered) }
-                    }
+                NumberPadView(code: $code, length: 6, onComplete: submitCode)
 
                 if isConnecting {
                     ProgressView()
@@ -122,7 +111,6 @@ struct OnboardingView: View {
                         await MainActor.run {
                             isSearching = false
                             bridgeURL = URL(string: "http://\(ip):\(port)")
-                            codeFocused = true
                         }
                         return
                     }
@@ -143,8 +131,7 @@ struct OnboardingView: View {
             await MainActor.run {
                 isSearching = false
                 bridgeURL = url
-                if url != nil { codeFocused = true }
-                else { ipFocused = true }
+                if url == nil { ipFocused = true }
             }
         }
     }
