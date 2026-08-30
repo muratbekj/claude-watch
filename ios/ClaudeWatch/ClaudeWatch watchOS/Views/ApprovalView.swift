@@ -6,7 +6,13 @@ struct ApprovalView: View {
     @Environment(\.dismiss) private var dismiss
 
     let request: ApprovalRequest
+    let sessionId: String?
     @State private var hasResponded = false
+
+    init(request: ApprovalRequest, sessionId: String? = nil) {
+        self.request = request
+        self.sessionId = sessionId
+    }
 
     var body: some View {
         ScrollView {
@@ -96,10 +102,10 @@ struct ApprovalView: View {
         // For AskUserQuestion: send the option label
         // For permission prompts: first = allow, last = deny
         if request.question != nil {
-            session.respondToPermissionWithOption(option.label, index: index)
+            session.respondToPermissionWithOption(option.label, index: index, permissionId: request.permissionId, sessionId: sessionId)
         } else {
             let approved = index != request.options.count - 1
-            session.respondToPermission(approved: approved)
+            session.respondToPermission(approved: approved, permissionId: request.permissionId, sessionId: sessionId)
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {

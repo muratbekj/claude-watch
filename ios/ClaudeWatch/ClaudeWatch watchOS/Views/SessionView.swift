@@ -26,6 +26,20 @@ struct SessionView: View {
                         .foregroundColor(Theme.Text.primary)
                         .lineLimit(1)
                     Spacer()
+                    if let otherIdx = session.sessionIndexWithPendingApproval(excluding: sessionIndex) {
+                        Button {
+                            session.activeSessionIndex = otherIdx
+                        } label: {
+                            HStack(spacing: 2) {
+                                Image(systemName: "exclamationmark.circle.fill")
+                                    .font(.system(size: 9))
+                                Text("1")
+                                    .font(.system(size: 9, weight: .bold))
+                            }
+                            .foregroundColor(Theme.Accent.approval)
+                        }
+                        .buttonStyle(.plain)
+                    }
                     Circle()
                         .fill(statusColor)
                         .frame(width: 5, height: 5)
@@ -106,12 +120,27 @@ struct SessionView: View {
             .padding(.bottom, 16)
         }
         .ignoresSafeArea(edges: .bottom)
-        .sheet(item: $session.pendingApproval) { request in
-            ApprovalView(request: request)
+        .sheet(item: pendingApprovalBinding) { request in
+            ApprovalView(request: request, sessionId: agentSession.id)
         }
         .fullScreenCover(isPresented: $showVoiceInput) {
             VoiceInputView(sessionId: agentSession.id)
         }
+    }
+
+    // Binds directly to this session's own slot so an approval for a
+    // different session never overwrites or hides what's shown here.
+    private var pendingApprovalBinding: Binding<ApprovalRequest?> {
+        Binding(
+            get: {
+                guard session.sessions.indices.contains(sessionIndex) else { return nil }
+                return session.sessions[sessionIndex].pendingApproval
+            },
+            set: { newValue in
+                guard session.sessions.indices.contains(sessionIndex) else { return }
+                session.sessions[sessionIndex].pendingApproval = newValue
+            }
+        )
     }
 
     private var visibleLines: [TerminalLine] {

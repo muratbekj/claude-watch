@@ -400,17 +400,16 @@ class WatchViewState: ObservableObject {
 
     // MARK: - Permission response
 
-    func respondToPermissionWithOption(_ optionLabel: String, index: Int) {
-        let approval = pendingApproval ?? activeSession?.pendingApproval
-        guard let permissionId = approval?.permissionId ?? UserDefaults.standard.string(forKey: "watch_pending_permission"),
+    // sessionId identifies which session's ApprovalRequest this response is
+    // for — passed explicitly by the presenting SessionView rather than
+    // re-derived from `pendingApproval`/`activeSession`, since those can
+    // point at a different session than the one whose sheet is actually on
+    // screen (each session now carries its own pendingApproval).
+    func respondToPermissionWithOption(_ optionLabel: String, index: Int, permissionId explicitPermissionId: String?, sessionId: String?) {
+        guard let permissionId = explicitPermissionId ?? UserDefaults.standard.string(forKey: "watch_pending_permission"),
               let baseURL = bridge.baseURL, let token = bridge.token else { return }
 
-        let sessionId = activeSession?.id
-        pendingApproval = nil
-        if let session = activeSession, let idx = sessionIndex(for: session.id) {
-            sessions[idx].pendingApproval = nil
-            sessions[idx].activity = .running
-        }
+        clearPendingApproval(permissionId: permissionId, sessionId: sessionId)
 
         let url = baseURL.appendingPathComponent("command")
         var urlRequest = URLRequest(url: url)
@@ -446,17 +445,11 @@ class WatchViewState: ObservableObject {
         UserDefaults.standard.removeObject(forKey: "watch_pending_permission")
     }
 
-    func respondToPermission(approved: Bool) {
-        let approval = pendingApproval ?? activeSession?.pendingApproval
-        guard let permissionId = approval?.permissionId ?? UserDefaults.standard.string(forKey: "watch_pending_permission"),
+    func respondToPermission(approved: Bool, permissionId explicitPermissionId: String?, sessionId: String?) {
+        guard let permissionId = explicitPermissionId ?? UserDefaults.standard.string(forKey: "watch_pending_permission"),
               let baseURL = bridge.baseURL, let token = bridge.token else { return }
 
-        let sessionId = activeSession?.id
-        pendingApproval = nil
-        if let session = activeSession, let idx = sessionIndex(for: session.id) {
-            sessions[idx].pendingApproval = nil
-            sessions[idx].activity = .running
-        }
+        clearPendingApproval(permissionId: permissionId, sessionId: sessionId)
 
         let url = baseURL.appendingPathComponent("command")
         var urlRequest = URLRequest(url: url)
@@ -491,6 +484,33 @@ class WatchViewState: ObservableObject {
             sessionId: sessionId
         )
         UserDefaults.standard.removeObject(forKey: "watch_pending_permission")
+    }
+
+    // Clears the approval that matches permissionId, preferring the named
+    // session but falling back to scanning every session (and the legacy
+    // flat slot) in case the caller didn't know which session it belonged to.
+    private func clearPendingApproval(permissionId: String, sessionId: String?) {
+        if let sid = sessionId, let idx = sessionIndex(for: sid) {
+            if sessions[idx].pendingApproval?.permissionId == permissionId {
+                sessions[idx].pendingApproval = nil
+                sessions[idx].activity = .running
+            }
+        } else {
+            for idx in sessions.indices where sessions[idx].pendingApproval?.permissionId == permissionId {
+                sessions[idx].pendingApproval = nil
+                sessions[idx].activity = .running
+            }
+        }
+        if pendingApproval?.permissionId == permissionId {
+            pendingApproval = nil
+        }
+    }
+
+    // The index of another session (not `excluding`) that has an
+    // unanswered approval — used to badge the pager when an approval
+    // arrives on a session the user isn't currently looking at.
+    func sessionIndexWithPendingApproval(excluding: Int) -> Int? {
+        sessions.indices.first { $0 != excluding && sessions[$0].pendingApproval != nil }
     }
 
     // MARK: - Clear terminal
