@@ -26,6 +26,11 @@ type Session struct {
 	// mid-conversation (e.g. after `cd` in a Bash tool call).
 	ClaudeSessionID string
 
+	// LastMessage is the most recent transcript-derived assistant text
+	// pushed to the watch for this session, used to dedupe when both the
+	// Stop and Notification hooks fire for the same turn.
+	LastMessage string
+
 	pty *ptyProcess // nil for externally/hook-detected sessions
 }
 
@@ -372,6 +377,22 @@ func (reg *SessionRegistry) SetRunning(id string) {
 	reg.sse.PushEvent("session", jmap{
 		"state": "running", "agent": agent, "cwd": cwd, "folderName": folderName,
 	}, &id)
+}
+
+// SetLastMessageIfChanged updates id's last-emitted transcript message and
+// reports whether it actually changed. Returns false for an unknown
+// session id or a repeat of the same text — used so a transcript-derived
+// "message" event isn't pushed twice when Stop and Notification both fire
+// for the same turn.
+func (reg *SessionRegistry) SetLastMessageIfChanged(id, text string) bool {
+	reg.mu.Lock()
+	defer reg.mu.Unlock()
+	s, ok := reg.sessions[id]
+	if !ok || s.LastMessage == text {
+		return false
+	}
+	s.LastMessage = text
+	return true
 }
 
 // launchCwdArg mirrors server.js's process.argv[2] fallback — an optional

@@ -118,6 +118,15 @@ func (br *Bridge) handleHookStop(w http.ResponseWriter, r *http.Request) {
 	}
 	sid := br.sessions.ResolveHookSession(body)
 	logMsg("info", fmt.Sprintf("Hook: Stop received session=%s", sid))
+
+	if transcriptPath, ok := strField(body, "transcript_path"); ok && transcriptPath != "" {
+		if text := LatestAssistantText(transcriptPath); text != "" {
+			if br.sessions.SetLastMessageIfChanged(sid, text) {
+				br.sse.PushEvent("message", jmap{"text": text}, &sid)
+			}
+		}
+	}
+
 	br.sse.PushEvent("stop", body, &sid)
 	jsonResponse(w, http.StatusOK, jmap{"ok": true})
 }
