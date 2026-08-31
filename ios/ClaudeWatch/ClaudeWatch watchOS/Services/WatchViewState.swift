@@ -179,6 +179,12 @@ class WatchViewState: ObservableObject {
         case "permission-cleared":
             handlePermissionCleared(json, sessionId: sessionId)
 
+        case "message":
+            if let text = json["text"] as? String, !text.isEmpty {
+                removeThinkingLine(sessionId: sessionId)
+                appendLine(TerminalLine(text: text, type: .assistant), sessionId: sessionId)
+            }
+
         case "stop":
             removeThinkingLine(sessionId: sessionId)
             // Claude Code's Notification hook (idle_prompt/permission_prompt —
@@ -200,16 +206,12 @@ class WatchViewState: ObservableObject {
             handleSessionEvent(json, sessionId: sessionId)
 
         case "pty-output":
-            if let text = json["text"] as? String {
-                let cleaned = text.replacingOccurrences(
-                    of: "\\x1B\\[[0-9;]*[a-zA-Z]",
-                    with: "",
-                    options: .regularExpression
-                ).trimmingCharacters(in: .whitespacesAndNewlines)
-                if !cleaned.isEmpty {
-                    appendLine(TerminalLine(text: String(cleaned.prefix(80)), type: .output), sessionId: sessionId)
-                }
-            }
+            // Superseded by transcript-derived "message" events, which
+            // carry Claude's actual reply text without TUI rendering noise
+            // (box-drawing, spinners, redraws). Kept as a received-but-inert
+            // case rather than removed, in case a future liveness/connection
+            // signal wants to key off it.
+            break
 
         case "task-complete":
             let summary = json["summary"] as? String
