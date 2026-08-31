@@ -1,22 +1,16 @@
 import SwiftUI
 
-// The NavigationStack root shown at launch. With 2+ sessions running, it
-// shows a picker; with 0 or 1, it skips straight to MultiSessionPager
-// (which already renders its own "waiting for session" state for 0).
-//
-// That skip decision is made exactly once, in the first onAppear — not
-// recomputed from session.sessions.count on every change. Otherwise a new
-// session appearing while you're mid-conversation in the auto-entered pager
-// would flip this view's condition and yank you back to a list you never
-// asked to see.
+// The NavigationStack root shown at launch, always — even with just one
+// session (or none) running. Tap a row to enter that session; the pushed
+// view's back button returns here to pick another.
 struct SessionListView: View {
     @EnvironmentObject private var session: WatchViewState
-    @State private var didAutoEnter = false
-    @State private var showPager = false
 
     var body: some View {
         Group {
-            if session.sessions.count >= 2 {
+            if session.sessions.isEmpty {
+                waitingView
+            } else {
                 List {
                     ForEach(Array(session.sessions.enumerated()), id: \.element.id) { index, agentSession in
                         NavigationLink {
@@ -27,21 +21,25 @@ struct SessionListView: View {
                         }
                     }
                 }
-                .navigationTitle("Sessions")
-            } else {
-                Color.clear
             }
         }
-        .navigationDestination(isPresented: $showPager) {
-            MultiSessionPager()
+        .navigationTitle("Sessions")
+    }
+
+    private var waitingView: some View {
+        VStack(spacing: 8) {
+            AppLogo(size: 56)
+                .opacity(0.6)
+            Text("Waiting for session...")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.white.opacity(0.5))
+            Text("Start Claude or Codex on your Mac")
+                .font(.system(size: 9))
+                .foregroundColor(.white.opacity(0.3))
+                .multilineTextAlignment(.center)
         }
-        .onAppear {
-            guard !didAutoEnter else { return }
-            didAutoEnter = true
-            if session.sessions.count < 2 {
-                showPager = true
-            }
-        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black)
     }
 
     private func row(for agentSession: AgentSession) -> some View {
