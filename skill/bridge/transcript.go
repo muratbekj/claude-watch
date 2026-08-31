@@ -43,13 +43,25 @@ func LatestAssistantText(transcriptPath string) string {
 	}
 	defer f.Close()
 
+	// bufio.Scanner was tried here first but silently truncates the whole
+	// read on any single line over its buffer cap (bufio.ErrTooLong) —
+	// transcript lines can legitimately exceed that (a large tool result,
+	// e.g. reading a big file), which made this function return the
+	// earliest message in the file instead of the latest whenever that
+	// happened. bufio.Reader.ReadString has no such limit.
 	lines := make([]string, 0, maxTranscriptScanLines)
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
-		if len(lines) > maxTranscriptScanLines {
-			lines = lines[1:]
+	reader := bufio.NewReader(f)
+	for {
+		line, err := reader.ReadString('\n')
+		line = strings.TrimSuffix(line, "\n")
+		if line != "" {
+			lines = append(lines, line)
+			if len(lines) > maxTranscriptScanLines {
+				lines = lines[1:]
+			}
+		}
+		if err != nil {
+			break
 		}
 	}
 
