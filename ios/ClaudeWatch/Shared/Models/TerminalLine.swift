@@ -21,6 +21,7 @@ struct TerminalLine: Identifiable, Codable, Equatable {
         case error       // Error messages
         case action      // A single tool call: icon + title + optional detail
         case notification // Claude is waiting on you — needs a highlighted, hard-to-miss line
+        case assistant    // Claude's plain-text reply, read from the transcript
     }
 
     init(text: String, type: LineType = .output, sessionId: String? = nil, toolName: String? = nil, detail: String? = nil) {
