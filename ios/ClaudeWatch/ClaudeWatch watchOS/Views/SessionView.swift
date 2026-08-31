@@ -147,6 +147,16 @@ struct SessionView: View {
                 .font(.system(size: 10.5, weight: .medium))
                 .foregroundColor(Theme.Text.secondary)
                 .modifier(PulseModifier())
+        } else if line.type == .notification {
+            HStack(alignment: .top, spacing: 4) {
+                Image(systemName: "bell.fill")
+                    .font(.system(size: 9))
+                Text(line.text)
+                    .font(.system(size: 11, weight: .semibold))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .foregroundColor(Theme.Accent.approval)
+            .padding(.vertical, 2)
         } else {
             Text(line.text)
                 .font(.system(size: 11, design: .monospaced))
@@ -218,7 +228,8 @@ struct SessionView: View {
         case .system:   return Theme.Text.secondary
         case .thinking: return Theme.Text.primary.opacity(0.5)
         case .error:    return Theme.Accent.error
-        case .action:   return .white // unused — actionCard renders its own colors
+        case .action:       return .white // unused — actionCard renders its own colors
+        case .notification: return Theme.Accent.approval // unused — rendered inline above
         }
     }
 }

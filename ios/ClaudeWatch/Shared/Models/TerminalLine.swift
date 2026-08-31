@@ -20,6 +20,7 @@ struct TerminalLine: Identifiable, Codable, Equatable {
         case thinking    // Pulsing cursor indicator
         case error       // Error messages
         case action      // A single tool call: icon + title + optional detail
+        case notification // Claude is waiting on you — needs a highlighted, hard-to-miss line
     }
 
     init(text: String, type: LineType = .output, sessionId: String? = nil, toolName: String? = nil, detail: String? = nil) {

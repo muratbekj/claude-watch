@@ -181,7 +181,16 @@ class WatchViewState: ObservableObject {
 
         case "stop":
             removeThinkingLine(sessionId: sessionId)
-            appendLine(TerminalLine(text: "— stopped —", type: .system), sessionId: sessionId)
+            // Claude Code's Notification hook (idle_prompt/permission_prompt —
+            // "Claude is waiting for your input") is routed to this same
+            // endpoint and carries a `message`; surface it instead of a
+            // generic line so it's obvious a reply is expected.
+            if let message = json["message"] as? String, !message.isEmpty {
+                appendLine(TerminalLine(text: message, type: .notification), sessionId: sessionId)
+                HapticManager.approvalNeeded()
+            } else {
+                appendLine(TerminalLine(text: "— stopped —", type: .system), sessionId: sessionId)
+            }
             isStreaming = false
             if let sid = sessionId, let idx = sessionIndex(for: sid) {
                 sessions[idx].activity = .idle
@@ -300,6 +309,14 @@ class WatchViewState: ObservableObject {
                 ApprovalRequest.OptionItem(label: "Yes"),
                 ApprovalRequest.OptionItem(label: "Yes, allow all"),
                 ApprovalRequest.OptionItem(label: "No"),
+            ]
+        } else if toolName == "ExitPlanMode", let plan = toolInput["plan"] as? String {
+            desc = "Review plan"
+            question = String(plan.prefix(600))
+            options = [
+                ApprovalRequest.OptionItem(label: "Yes"),
+                ApprovalRequest.OptionItem(label: "Yes, auto-accept edits"),
+                ApprovalRequest.OptionItem(label: "No, keep planning"),
             ]
         } else {
             options = [
