@@ -157,6 +157,12 @@ struct SessionView: View {
             }
             .foregroundColor(Theme.Accent.approval)
             .padding(.vertical, 2)
+        } else if line.type == .assistant {
+            Text(line.text)
+                .font(.system(size: 11.5))
+                .foregroundColor(Theme.Text.primary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.vertical, 2)
         } else {
             Text(line.text)
                 .font(.system(size: 11, design: .monospaced))
@@ -230,6 +236,7 @@ struct SessionView: View {
         case .error:    return Theme.Accent.error
         case .action:       return .white // unused — actionCard renders its own colors
         case .notification: return Theme.Accent.approval // unused — rendered inline above
+        case .assistant:    return Theme.Text.primary // unused — rendered inline above
         }
     }
 }
