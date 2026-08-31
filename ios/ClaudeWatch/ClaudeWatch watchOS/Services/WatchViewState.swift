@@ -26,6 +26,7 @@ class WatchViewState: ObservableObject {
     private var pollTimer: Timer?
     private var lastEventId: Int = 0
     private var sseTask: URLSessionDataTask?
+    private var historyLoadedSessionIds: Set<String> = []
 
     private init() {
         if bridge.isPaired {
@@ -84,6 +85,37 @@ class WatchViewState: ObservableObject {
 
     private func sessionIndex(for id: String) -> Int? {
         sessions.firstIndex(where: { $0.id == id })
+    }
+
+    // MARK: - Chat history backfill
+
+    // Fetches this session's recent past chat (if not already loaded) and
+    // prepends it to its terminalLines, so opening a session shows what was
+    // said recently instead of a blank feed. Safe to call every time a
+    // session's view appears — the id guard makes it a no-op after the
+    // first successful load.
+    func loadHistoryIfNeeded(for sessionId: String) {
+        guard !sessionId.isEmpty, !historyLoadedSessionIds.contains(sessionId) else { return }
+        historyLoadedSessionIds.insert(sessionId)
+
+        Task {
+            do {
+                let messages = try await bridge.fetchHistory(sessionId: sessionId)
+                guard !messages.isEmpty else { return }
+                await MainActor.run {
+                    guard let idx = self.sessionIndex(for: sessionId) else { return }
+                    let historyLines = messages.map { message -> TerminalLine in
+                        if message.role == "user" {
+                            return TerminalLine(text: "> \(message.text)", type: .command, sessionId: sessionId)
+                        }
+                        return TerminalLine(text: message.text, type: .assistant, sessionId: sessionId)
+                    }
+                    self.sessions[idx].terminalLines.insert(contentsOf: historyLines, at: 0)
+                }
+            } catch {
+                print("[WatchViewState] Failed to load history for \(sessionId): \(error)")
+            }
+        }
     }
 
     private func removeThinkingLine(sessionId: String?) {

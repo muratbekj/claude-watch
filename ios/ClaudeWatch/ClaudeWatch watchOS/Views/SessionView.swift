@@ -126,6 +126,9 @@ struct SessionView: View {
         .fullScreenCover(isPresented: $showVoiceInput) {
             VoiceInputView(sessionId: agentSession.id)
         }
+        .onAppear {
+            session.loadHistoryIfNeeded(for: agentSession.id)
+        }
     }
 
     // Binds directly to this session's own slot so an approval for a

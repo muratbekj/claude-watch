@@ -96,6 +96,22 @@ class WatchBridgeClient: ObservableObject {
         return [BridgeEvent(state: status.state, hasPty: status.hasPty)]
     }
 
+    /// Fetch recent past chat history for a session (backfill for a client
+    /// that has no live-accumulated lines for it yet — e.g. just opened it).
+    func fetchHistory(sessionId: String) async throws -> [ChatMessageDTO] {
+        guard let baseURL, let token else { throw BridgeError.notPaired }
+        var components = URLComponents(url: baseURL.appendingPathComponent("history"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [URLQueryItem(name: "sessionId", value: sessionId)]
+        guard let url = components?.url else { throw BridgeError.network }
+
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw BridgeError.network }
+        let result = try JSONDecoder().decode(HistoryResponse.self, from: data)
+        return result.messages ?? []
+    }
+
     func unpair() {
         token = nil
         baseURL = nil
@@ -134,6 +150,15 @@ class WatchBridgeClient: ObservableObject {
     struct BridgeEvent {
         let state: String
         let hasPty: Bool
+    }
+
+    struct ChatMessageDTO: Decodable {
+        let role: String // "user" or "assistant"
+        let text: String
+    }
+
+    struct HistoryResponse: Decodable {
+        let messages: [ChatMessageDTO]?
     }
 }
 

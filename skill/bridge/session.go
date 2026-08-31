@@ -31,6 +31,11 @@ type Session struct {
 	// Stop and Notification hooks fire for the same turn.
 	LastMessage string
 
+	// TranscriptPath is this session's Claude Code transcript JSONL file,
+	// kept current by ResolveHookSession from every hook payload. Used to
+	// backfill recent chat history when a client opens this session.
+	TranscriptPath string
+
 	pty *ptyProcess // nil for externally/hook-detected sessions
 }
 
@@ -311,9 +316,11 @@ func (reg *SessionRegistry) RunningSnapshot() []sessionSnapshot {
 // normalized to "claude" — Codex support is out of scope for this port).
 func (reg *SessionRegistry) ResolveHookSession(body jmap) string {
 	claudeSessionID, _ := strField(body, "session_id")
+	transcriptPath, _ := strField(body, "transcript_path")
 
 	if claudeSessionID != "" {
 		if match := reg.FindByClaudeSessionID(claudeSessionID); match != nil {
+			reg.SetTranscriptPath(match.ID, transcriptPath)
 			return match.ID
 		}
 	}
@@ -325,9 +332,11 @@ func (reg *SessionRegistry) ResolveHookSession(body jmap) string {
 
 	if claudeSessionID == "" {
 		if match := reg.FindByCwd(cwd); match != nil {
+			reg.SetTranscriptPath(match.ID, transcriptPath)
 			return match.ID
 		}
 		if active := reg.FindMostRecentActive(); active != nil {
+			reg.SetTranscriptPath(active.ID, transcriptPath)
 			return active.ID
 		}
 	}
@@ -347,6 +356,7 @@ func (reg *SessionRegistry) ResolveHookSession(body jmap) string {
 		State:           "running",
 		CreatedAt:       time.Now(),
 		ClaudeSessionID: claudeSessionID,
+		TranscriptPath:  transcriptPath,
 	}
 
 	reg.mu.Lock()
@@ -359,6 +369,31 @@ func (reg *SessionRegistry) ResolveHookSession(body jmap) string {
 	}, &id)
 
 	return id
+}
+
+// SetTranscriptPath records the transcript file path for id, if non-empty
+// and id is known. Hook payloads carry this on every call, so it's kept
+// current without touching every individual hook handler.
+func (reg *SessionRegistry) SetTranscriptPath(id, path string) {
+	if path == "" {
+		return
+	}
+	reg.mu.Lock()
+	defer reg.mu.Unlock()
+	if s, ok := reg.sessions[id]; ok {
+		s.TranscriptPath = path
+	}
+}
+
+// GetTranscriptPath returns id's known transcript path, or "" if the
+// session is unknown or none has been recorded yet.
+func (reg *SessionRegistry) GetTranscriptPath(id string) string {
+	reg.mu.Lock()
+	defer reg.mu.Unlock()
+	if s, ok := reg.sessions[id]; ok {
+		return s.TranscriptPath
+	}
+	return ""
 }
 
 // SetRunning transitions a hook-detected (PTY-less) session back to

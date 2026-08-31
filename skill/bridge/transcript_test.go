@@ -111,6 +111,95 @@ func TestLatestAssistantText_HandlesLinesLargerThanOldScannerLimit(t *testing.T)
 	}
 }
 
+func TestRecentChatHistory_ReturnsInChronologicalOrder(t *testing.T) {
+	path := writeTranscript(t, []string{
+		`{"type":"user","message":{"role":"user","content":[{"type":"text","text":"first question"}]}}`,
+		`{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"first answer"}]}}`,
+		`{"type":"user","message":{"role":"user","content":[{"type":"text","text":"second question"}]}}`,
+		`{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"second answer"}]}}`,
+	})
+	got := RecentChatHistory(path, 10)
+	want := []ChatMessage{
+		{Role: "user", Text: "first question"},
+		{Role: "assistant", Text: "first answer"},
+		{Role: "user", Text: "second question"},
+		{Role: "assistant", Text: "second answer"},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %d messages, want %d: %+v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("message %d: got %+v, want %+v", i, got[i], want[i])
+		}
+	}
+}
+
+func TestRecentChatHistory_SkipsToolResultOnlyUserEntries(t *testing.T) {
+	path := writeTranscript(t, []string{
+		`{"type":"user","message":{"role":"user","content":[{"type":"text","text":"real question"}]}}`,
+		`{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","text":""}]}}`,
+		`{"type":"user","message":{"role":"user","content":[{"type":"tool_result","text":"some tool output, not something a human typed"}]}}`,
+		`{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"real answer"}]}}`,
+	})
+	got := RecentChatHistory(path, 10)
+	want := []ChatMessage{
+		{Role: "user", Text: "real question"},
+		{Role: "assistant", Text: "real answer"},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %d messages, want %d: %+v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("message %d: got %+v, want %+v", i, got[i], want[i])
+		}
+	}
+}
+
+func TestRecentChatHistory_RespectsMaxMessages(t *testing.T) {
+	path := writeTranscript(t, []string{
+		`{"type":"user","message":{"role":"user","content":[{"type":"text","text":"q1"}]}}`,
+		`{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"a1"}]}}`,
+		`{"type":"user","message":{"role":"user","content":[{"type":"text","text":"q2"}]}}`,
+		`{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"a2"}]}}`,
+	})
+	got := RecentChatHistory(path, 2)
+	want := []ChatMessage{
+		{Role: "user", Text: "q2"},
+		{Role: "assistant", Text: "a2"},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %d messages, want %d: %+v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("message %d: got %+v, want %+v", i, got[i], want[i])
+		}
+	}
+}
+
+func TestRecentChatHistory_EmptyPathReturnsNil(t *testing.T) {
+	if got := RecentChatHistory("", 10); got != nil {
+		t.Errorf("got %+v, want nil", got)
+	}
+}
+
+func TestRecentChatHistory_MissingFileReturnsNil(t *testing.T) {
+	if got := RecentChatHistory("/no/such/file.jsonl", 10); got != nil {
+		t.Errorf("got %+v, want nil", got)
+	}
+}
+
+func TestRecentChatHistory_ZeroMaxReturnsNil(t *testing.T) {
+	path := writeTranscript(t, []string{
+		`{"type":"user","message":{"role":"user","content":[{"type":"text","text":"q1"}]}}`,
+	})
+	if got := RecentChatHistory(path, 0); got != nil {
+		t.Errorf("got %+v, want nil", got)
+	}
+}
+
 func TestLatestAssistantText_HandlesFinalLineWithoutTrailingNewline(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "transcript.jsonl")

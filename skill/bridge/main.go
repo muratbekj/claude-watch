@@ -26,6 +26,7 @@ func buildMux(br *Bridge) *http.ServeMux {
 	mux.HandleFunc("/hooks/task-complete", br.handleHookTaskComplete)
 	mux.HandleFunc("/hooks/error", br.handleHookError)
 	mux.HandleFunc("/status", br.handleStatus)
+	mux.HandleFunc("/history", br.handleHistory)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		jsonResponse(w, http.StatusNotFound, jmap{"error": "Not found"})
 	})

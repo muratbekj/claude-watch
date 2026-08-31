@@ -97,3 +97,82 @@ func textFromTranscriptLine(line string) string {
 	}
 	return strings.Join(texts, "\n")
 }
+
+// ChatMessage is one past turn of plain-text conversation, as backfilled
+// for a client opening a session it doesn't have live history for.
+type ChatMessage struct {
+	Role string `json:"role"` // "user" or "assistant"
+	Text string `json:"text"`
+}
+
+// chatMessageFromTranscriptLine parses one JSONL line and, if it's a
+// "user" or "assistant" entry with at least one non-empty text content
+// block, returns it as a ChatMessage. A "user"-typed entry whose only
+// content is a tool_result (the CLI feeding a tool's output back, not
+// something a human typed) has no "text" blocks and is correctly skipped
+// by the same filter used for assistant entries.
+func chatMessageFromTranscriptLine(line string) (ChatMessage, bool) {
+	var entry transcriptEntry
+	if err := json.Unmarshal([]byte(line), &entry); err != nil {
+		return ChatMessage{}, false
+	}
+	if entry.Type != "user" && entry.Type != "assistant" {
+		return ChatMessage{}, false
+	}
+	var texts []string
+	for _, block := range entry.Message.Content {
+		if block.Type == "text" && block.Text != "" {
+			texts = append(texts, block.Text)
+		}
+	}
+	if len(texts) == 0 {
+		return ChatMessage{}, false
+	}
+	return ChatMessage{Role: entry.Type, Text: strings.Join(texts, "\n")}, true
+}
+
+// RecentChatHistory scans transcriptPath backward for up to maxMessages
+// past user/assistant text messages (tool calls and thinking are not
+// "chat" and are skipped, same as LatestAssistantText), and returns them
+// in chronological order — oldest first — ready to backfill a session's
+// feed. Returns an empty slice (never an error) if the path is empty, the
+// file is missing/unreadable, or nothing qualifies within the scan window.
+func RecentChatHistory(transcriptPath string, maxMessages int) []ChatMessage {
+	if transcriptPath == "" || maxMessages <= 0 {
+		return nil
+	}
+	f, err := os.Open(transcriptPath)
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+
+	lines := make([]string, 0, maxTranscriptScanLines)
+	reader := bufio.NewReader(f)
+	for {
+		line, err := reader.ReadString('\n')
+		line = strings.TrimSuffix(line, "\n")
+		if line != "" {
+			lines = append(lines, line)
+			if len(lines) > maxTranscriptScanLines {
+				lines = lines[1:]
+			}
+		}
+		if err != nil {
+			break
+		}
+	}
+
+	var messages []ChatMessage
+	for i := len(lines) - 1; i >= 0 && len(messages) < maxMessages; i-- {
+		if msg, ok := chatMessageFromTranscriptLine(lines[i]); ok {
+			messages = append(messages, msg)
+		}
+	}
+
+	// messages was built newest-first; reverse it to chronological order.
+	for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
+		messages[i], messages[j] = messages[j], messages[i]
+	}
+	return messages
+}
