@@ -1,5 +1,17 @@
 import SwiftUI
 
+// Shared with SessionListView so both use the same activity → color mapping.
+extension AgentSession {
+    var statusColor: Color {
+        switch activity {
+        case .running: return Theme.Accent.success
+        case .waitingApproval: return Theme.Accent.approval
+        case .ended: return Theme.Accent.error
+        case .idle: return Theme.Text.secondary
+        }
+    }
+}
+
 struct SessionView: View {
     let sessionIndex: Int
     @EnvironmentObject private var session: WatchViewState
@@ -39,7 +51,7 @@ struct SessionView: View {
                         .buttonStyle(.plain)
                     }
                     Circle()
-                        .fill(statusColor)
+                        .fill(agentSession.statusColor)
                         .frame(width: 5, height: 5)
                 }
                 .padding(.horizontal, 4)
@@ -216,15 +228,6 @@ struct SessionView: View {
             return Theme.Accent.success
         }
         return colorFor(line.type)
-    }
-
-    private var statusColor: Color {
-        switch agentSession.activity {
-        case .running: return Theme.Accent.success
-        case .waitingApproval: return Theme.Accent.approval
-        case .ended: return Theme.Accent.error
-        case .idle: return Theme.Text.secondary
-        }
     }
 
     private func colorFor(_ type: TerminalLine.LineType) -> Color {

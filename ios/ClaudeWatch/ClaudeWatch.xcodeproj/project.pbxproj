@@ -44,6 +44,7 @@
 		9F1C0E865B63F7A44569EBDE /* SSEClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A793D9B158E02174ED968B0 /* SSEClient.swift */; };
 		A4537D76D204EE5733D1E5EE /* BridgeClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CD1289B8157BD282826FB50 /* BridgeClient.swift */; };
 		B8715FECFCB144FCB05963D7 /* WatchViewState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0559DABD121D25AC18E9CF46 /* WatchViewState.swift */; };
+		BD36E768C600623C8BBBBA46 /* SessionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E94118C66FF8978F1DA2A2FE /* SessionListView.swift */; };
 		BE5F367582BDDF887D2B9676 /* OutputRingBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A8D708937263FAAC2A40CCA /* OutputRingBuffer.swift */; };
 		C14ED76603B07ED64BA096EA /* ClaudeWatchWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 378B120DB4409D4BE7E1578E /* ClaudeWatchWatchApp.swift */; };
 		C19D82167F1828CB13CE9843 /* WatchSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68FBA67A3544CEF418CF023C /* WatchSessionManager.swift */; };
@@ -120,6 +121,7 @@
 		D315314A06584F20A95E7DB6 /* WatchMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchMessage.swift; sourceTree = "<group>"; };
 		DEE8B7F73D4F2B406E6ADFD7 /* WhimsicalStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhimsicalStatus.swift; sourceTree = "<group>"; };
 		E05A5819BA45145C8992456D /* ComplicationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComplicationProvider.swift; sourceTree = "<group>"; };
+		E94118C66FF8978F1DA2A2FE /* SessionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionListView.swift; sourceTree = "<group>"; };
 		E9E5F4DB569AEA9A916E022B /* ToolStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolStyle.swift; sourceTree = "<group>"; };
 		F237360F4AF9396B7B3C1881 /* AgentIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentIcon.swift; sourceTree = "<group>"; };
 		F2AE97EBC478BD914C68C639 /* NumberPadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberPadView.swift; sourceTree = "<group>"; };
@@ -144,6 +146,7 @@
 				AD19B0B5E496A5FE71AC4A4B /* MultiSessionPager.swift */,
 				F2AE97EBC478BD914C68C639 /* NumberPadView.swift */,
 				B55C9A1C1C5F307901694336 /* OnboardingView.swift */,
+				E94118C66FF8978F1DA2A2FE /* SessionListView.swift */,
 				A0197766C66BEEF61093A925 /* SessionView.swift */,
 				103838389D179B4E7BB59FE9 /* StatusDashboard.swift */,
 				E9E5F4DB569AEA9A916E022B /* ToolStyle.swift */,
@@ -439,6 +442,7 @@
 				03C0B4540FE42877466C799A /* NumberPadView.swift in Sources */,
 				3567322839F9B7C8982E2CC2 /* OnboardingView.swift in Sources */,
 				BE5F367582BDDF887D2B9676 /* OutputRingBuffer.swift in Sources */,
+				BD36E768C600623C8BBBBA46 /* SessionListView.swift in Sources */,
 				5878B94D3BB58C30DCBFB3AF /* SessionState.swift in Sources */,
 				33760C5A9FFC556535CF3809 /* SessionView.swift in Sources */,
 				45ACE32BBF4381937CE61A77 /* SpeechService.swift in Sources */,

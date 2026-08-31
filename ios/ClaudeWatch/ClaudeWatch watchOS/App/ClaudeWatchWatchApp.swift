@@ -33,7 +33,9 @@ struct ClaudeWatchWatchApp: App {
         WindowGroup {
             Group {
                 if sessionManager.isPaired {
-                    MultiSessionPager()
+                    NavigationStack {
+                        SessionListView()
+                    }
                 } else {
                     OnboardingView()
                 }
