@@ -50,8 +50,34 @@ struct SessionListView: View {
                 .foregroundColor(Theme.Text.primary)
                 .lineLimit(1)
             Spacer()
+            activityIndicator(for: agentSession.activity)
+        }
+    }
+
+    // .running gets a calm "still working" breathing pulse; .waitingApproval
+    // gets a faster, size-based pulse so it reads as needing your attention,
+    // not just quietly active. Idle/ended stay as plain static dots — there's
+    // nothing happening to animate.
+    @ViewBuilder
+    private func activityIndicator(for activity: SessionActivity) -> some View {
+        switch activity {
+        case .running:
+            Image(systemName: "circle.fill")
+                .font(.system(size: 8))
+                .foregroundColor(Theme.Accent.success)
+                .modifier(PulseModifier())
+        case .waitingApproval:
+            Image(systemName: "exclamationmark.circle.fill")
+                .font(.system(size: 10))
+                .foregroundColor(Theme.Accent.approval)
+                .modifier(AttentionPulseModifier())
+        case .ended:
             Circle()
-                .fill(agentSession.statusColor)
+                .fill(Theme.Accent.error)
+                .frame(width: 6, height: 6)
+        case .idle:
+            Circle()
+                .fill(Theme.Text.secondary)
                 .frame(width: 6, height: 6)
         }
     }

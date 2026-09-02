@@ -281,3 +281,15 @@ struct PulseModifier: ViewModifier {
             .onAppear { isPulsing = true }
     }
 }
+
+// A faster, size-based pulse (vs PulseModifier's calmer opacity breathing)
+// for states that need attention rather than just "quietly active".
+struct AttentionPulseModifier: ViewModifier {
+    @State private var isPulsing = false
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(isPulsing ? 1.3 : 1.0)
+            .animation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true), value: isPulsing)
+            .onAppear { isPulsing = true }
+    }
+}
