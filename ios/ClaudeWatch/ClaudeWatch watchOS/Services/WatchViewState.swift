@@ -436,10 +436,16 @@ class WatchViewState: ObservableObject {
 
         case "ended":
             isStreaming = false
+            let killed = json["killed"] as? Bool ?? false
             if let sid = sessionId, let idx = sessionIndex(for: sid) {
-                sessions[idx].activity = .ended
-                appendLine(TerminalLine(text: "Session ended", type: .system), sessionId: sid)
-            } else {
+                if killed {
+                    // Explicitly deleted — gone, not just marked ended.
+                    removeSessionLocally(sid)
+                } else {
+                    sessions[idx].activity = .ended
+                    appendLine(TerminalLine(text: "Session ended", type: .system), sessionId: sid)
+                }
+            } else if !killed {
                 appendLine(TerminalLine(text: "Session ended", type: .system))
             }
 
@@ -567,15 +573,23 @@ class WatchViewState: ObservableObject {
         sessions.indices.first { $0 != excluding && sessions[$0].pendingApproval != nil }
     }
 
-    // MARK: - Clear terminal
+    // MARK: - Remove session from watch
 
-    func clearTerminal(sessionId: String? = nil) {
-        let sid = sessionId ?? activeSession?.id
-        if let sid, let idx = sessionIndex(for: sid) {
-            sessions[idx].terminalLines.removeAll()
+    // Removes this session from the watch's own list only — it does NOT
+    // touch the actual Claude Code session on the Mac (no kill/end command
+    // is sent). If that underlying session produces more activity later,
+    // it'll simply reappear via the normal "new session appeared" path in
+    // handleSessionEvent, same as any other session first showing up.
+    func removeSessionFromWatch(_ sessionId: String) {
+        removeSessionLocally(sessionId)
+    }
+
+    private func removeSessionLocally(_ sessionId: String) {
+        guard let idx = sessionIndex(for: sessionId) else { return }
+        sessions.remove(at: idx)
+        if activeSessionIndex >= sessions.count {
+            activeSessionIndex = max(0, sessions.count - 1)
         }
-        // Also clear flat list
-        terminalLines.removeAll()
     }
 
     // MARK: - Voice command (direct to bridge)

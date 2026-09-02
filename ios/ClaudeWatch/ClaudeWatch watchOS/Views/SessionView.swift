@@ -85,7 +85,7 @@ struct SessionView: View {
             // FAB buttons
             HStack {
                 // Clear button (left)
-                Button { session.clearTerminal(sessionId: agentSession.id) } label: {
+                Button { session.removeSessionFromWatch(agentSession.id) } label: {
                     ZStack {
                         Circle()
                             .fill(Theme.Text.secondary.opacity(0.5))
